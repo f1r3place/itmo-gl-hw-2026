@@ -1,11 +1,10 @@
 #pragma once
 
 #include "openglwidget.h"
+#include "camera2d.h"
 
-#include <QElapsedTimer>
 #include <QOpenGLBuffer>
 #include <QOpenGLShaderProgram>
-#include <QOpenGLTexture>
 #include <QOpenGLVertexArrayObject>
 #include <QWindow>
 
@@ -21,10 +20,14 @@ public:
     void onRender() override;
     void onResize(size_t width, size_t height) override;
 
+protected:
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
+
 private:
-    QElapsedTimer timer_;
-    GLint colorUniform_ = -1;
-    float hue_ = 0;
+    Camera2D camera_;
+    QPointF lastMousePosition_;
 
     GLint mvpUniform_ = -1;
 
@@ -36,9 +39,5 @@ private:
     QOpenGLBuffer ibo_{QOpenGLBuffer::Type::IndexBuffer};
     QOpenGLVertexArrayObject vao_;
 
-    std::unique_ptr<QOpenGLTexture> texture_;
     std::unique_ptr<QOpenGLShaderProgram> program_;
-
-    bool animated_ = true;
-    bool сolorAnimated_ = animated_;
 };
