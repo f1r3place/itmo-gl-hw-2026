@@ -15,7 +15,6 @@ set(PROJECT_SOURCES
         main.cpp
         window.cpp
         window.h
-        textures/cat.jpg
 )
 
 add_executable(itmo-gl-hw-2026
