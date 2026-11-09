@@ -28,6 +28,7 @@ protected:
 private:
     Camera2D camera_;
     QPointF lastMousePosition_;
+    float triangleWidth_ = 1.0f;
 
     GLint mvpUniform_ = -1;
 

@@ -2,6 +2,8 @@
 
 #include <QLabel>
 #include <QMouseEvent>
+#include <QSlider>
+#include <QVBoxLayout>
 #include <QWheelEvent>
 
 #include <array>
@@ -28,6 +30,25 @@ Window::Window()
     connect(this, &Window::fpsUpdated, [fpsLabel](double fps) {
         fpsLabel->setText(QString("FPS: %1").arg(fps, 0, 'f', 0));
         fpsLabel->adjustSize();
+    });
+
+    auto* widthLabel = new QLabel("Width: 1.00", this);
+    widthLabel->setStyleSheet("QLabel { color: white; }");
+    fpsLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+
+    auto* widthSlider = new QSlider(Qt::Horizontal, this);
+    widthSlider->setRange(10, 300);
+    widthSlider->setValue(100);
+
+    auto* layout = new QVBoxLayout(this);
+    layout->addStretch();
+    layout->addWidget(widthLabel);
+    layout->addWidget(widthSlider);
+
+    connect(widthSlider, &QSlider::valueChanged, this, [this, widthLabel](int value) {
+        triangleWidth_ = value / 100.0f;
+        widthLabel->setText(QString("Width: %1").arg(triangleWidth_, 0, 'f', 2));
+        update();
     });
 }
 
@@ -92,6 +113,7 @@ void Window::onRender()
     // Calculate MVP matrix
     model_.setToIdentity();
     model_.translate(0, 0, -1.5);
+    model_.scale(triangleWidth_, 1.0f, 1.0f);
     view_.setToIdentity();
     view_.translate(-camera_.center.x(), -camera_.center.y(), 0.0f);
     projection_ = camera_.projection(size());
