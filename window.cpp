@@ -4,18 +4,29 @@
 #include <QMouseEvent>
 #include <QSlider>
 #include <QVBoxLayout>
+#include <QVector2D>
 #include <QWheelEvent>
 
-#include <array>
 #include <cmath>
+#include <vector>
 
-constexpr std::array<GLfloat, 6u> vertices = {
-    0.0f, 0.5f,
-    -0.5f, -0.5f,
-    0.5f, -0.5f,
-};
+namespace {
+std::vector<QVector2D> generateDragon(int iterations)
+{
+    std::vector<QVector2D> points = {{0.0f, 0.0f}, {1.0f, 0.0f}};
+    points.reserve((1 << iterations) + 1);
 
-constexpr std::array<GLuint, 3u> indices = {0, 1, 2};
+    for (int n = 0; n < iterations; ++n) {
+        const QVector2D end = points.back();
+        for (int i = static_cast<int>(points.size()) - 2; i >= 0; --i) {
+            const QVector2D delta = points[i] - end;
+            points.push_back(end + QVector2D(-delta.y(), delta.x()));
+        }
+    }
+
+    return points;
+}
+}
 
 Window::Window()
 {
@@ -32,22 +43,23 @@ Window::Window()
         fpsLabel->adjustSize();
     });
 
-    auto* widthLabel = new QLabel("Width: 1.00", this);
-    widthLabel->setStyleSheet("QLabel { color: white; }");
-    fpsLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+    auto* iterationsLabel = new QLabel(QString("Iterations: %1").arg(iterations_), this);
+    iterationsLabel->setStyleSheet("QLabel { color: white; }");
+    iterationsLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
 
-    auto* widthSlider = new QSlider(Qt::Horizontal, this);
-    widthSlider->setRange(10, 300);
-    widthSlider->setValue(100);
+    auto* iterationsSlider = new QSlider(Qt::Horizontal, this);
+    iterationsSlider->setRange(0, 20);
+    iterationsSlider->setValue(iterations_);
 
     auto* layout = new QVBoxLayout(this);
     layout->addStretch();
-    layout->addWidget(widthLabel);
-    layout->addWidget(widthSlider);
+    layout->addWidget(iterationsLabel);
+    layout->addWidget(iterationsSlider);
 
-    connect(widthSlider, &QSlider::valueChanged, this, [this, widthLabel](int value) {
-        triangleWidth_ = value / 100.0f;
-        widthLabel->setText(QString("Width: %1").arg(triangleWidth_, 0, 'f', 2));
+    connect(iterationsSlider, &QSlider::valueChanged, this, [this, iterationsLabel](int value) {
+        iterations_ = value;
+        shouldRebuild_ = true;
+        iterationsLabel->setText(QString("Iterations: %1").arg(iterations_));
         update();
     });
 }
@@ -78,42 +90,50 @@ void Window::onInit()
     // Create VBO
     vbo_.create();
     vbo_.bind();
-    vbo_.setUsagePattern(QOpenGLBuffer::StaticDraw);
-    vbo_.allocate(vertices.data(), static_cast<int>(vertices.size() * sizeof(GLfloat)));
-
-    // Create IBO
-    ibo_.create();
-    ibo_.bind();
-    ibo_.setUsagePattern(QOpenGLBuffer::StaticDraw);
-    ibo_.allocate(indices.data(), static_cast<int>(indices.size() * sizeof(GLuint)));
+    vbo_.setUsagePattern(QOpenGLBuffer::DynamicDraw);
 
     // Bind attributes
     program_->enableAttributeArray(0);
-    program_->setAttributeBuffer(0, GL_FLOAT, 0, 2, static_cast<int>(2 * sizeof(GLfloat)));
+    program_->setAttributeBuffer(0, GL_FLOAT, 0, 2, static_cast<int>(sizeof(QVector2D)));
 
     // Release all
     program_->release();
 
     vao_.release();
     vbo_.release();
-    ibo_.release();
 
     // Еnable depth test and face culling
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
     // Clear all FBO buffers
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Window::updateGeometry()
+{
+    const auto points = generateDragon(iterations_);
+    pointCount_ = static_cast<GLsizei>(points.size());
+    vbo_.bind();
+    vbo_.allocate(points.data(), static_cast<int>(points.size() * sizeof(QVector2D)));
+    vbo_.release();
+    shouldRebuild_ = false;
 }
 
 void Window::onRender()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    if (shouldRebuild_) {
+        updateGeometry();
+    }
+
     // Calculate MVP matrix
     model_.setToIdentity();
-    model_.translate(0, 0, -1.5);
-    model_.scale(triangleWidth_, 1.0f, 1.0f);
+    model_.translate(-0.5f, 0.0f, -1.5f);
+    model_.rotate(iterations_ * 45.0f, 0.0f, 0.0f, 1.0f);
+    model_.scale(std::pow(2.0f, -0.5f * iterations_));
     view_.setToIdentity();
     view_.translate(-camera_.center.x(), -camera_.center.y(), 0.0f);
     projection_ = camera_.projection(size());
@@ -129,7 +149,7 @@ void Window::onRender()
     vao_.bind();
 
     // Draw
-    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, nullptr);
+    glDrawArrays(GL_LINE_STRIP, 0, pointCount_);
 
     // Release all
     vao_.release();

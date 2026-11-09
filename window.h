@@ -26,9 +26,13 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
 
 private:
+    void updateGeometry();
+
     Camera2D camera_;
     QPointF lastMousePosition_;
-    float triangleWidth_ = 1.0f;
+    int iterations_ = 8;
+    bool shouldRebuild_ = true;
+    GLsizei pointCount_ = 0;
 
     GLint mvpUniform_ = -1;
 
@@ -37,7 +41,6 @@ private:
     QMatrix4x4 projection_;
 
     QOpenGLBuffer vbo_{QOpenGLBuffer::Type::VertexBuffer};
-    QOpenGLBuffer ibo_{QOpenGLBuffer::Type::IndexBuffer};
     QOpenGLVertexArrayObject vao_;
 
     std::unique_ptr<QOpenGLShaderProgram> program_;
